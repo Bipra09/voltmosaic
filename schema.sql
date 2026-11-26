@@ -1,10 +1,8 @@
-CREATE DATABASE IF NOT EXISTS voltmosaic CHARACTER SET utf8mb4;
-USE voltmosaic;
 CREATE TABLE IF NOT EXISTS payments (
   id CHAR(32) PRIMARY KEY,
   request_id CHAR(36) NOT NULL UNIQUE,
-  service ENUM('mobile','electricity','internet') NOT NULL,
+  service TEXT NOT NULL CHECK (service IN ('mobile', 'electricity', 'internet')),
   reference VARCHAR(32) NOT NULL,
-  amount INT UNSIGNED NOT NULL CHECK (amount BETWEEN 100 AND 50000),
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  amount INTEGER NOT NULL CHECK (amount BETWEEN 100 AND 50000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
