@@ -16,10 +16,20 @@ if (!in_array($method, ['GET', 'POST'], true)) {
 }
 
 try {
+    $url = parse_url(getenv('DATABASE_URL') ?: '');
+    if (!$url || !in_array($url['scheme'] ?? '', ['postgres', 'postgresql'], true)
+        || !isset($url['host'], $url['user'], $url['path'])) {
+        throw new RuntimeException('Set DATABASE_URL to the PostgreSQL connection URL.');
+    }
+    $database = rawurldecode(ltrim($url['path'], '/'));
+    if (!preg_match('/^[a-zA-Z0-9_.-]+$/D', $database)
+        || !preg_match('/^[a-zA-Z0-9.-]+$/D', $url['host'])) {
+        throw new RuntimeException('Invalid PostgreSQL database or host.');
+    }
     $db = new PDO(
-        getenv('VOLT_DSN') ?: 'mysql:host=127.0.0.1;dbname=voltmosaic;charset=utf8mb4',
-        getenv('VOLT_USER') ?: 'voltmosaic',
-        getenv('VOLT_PASSWORD') ?: '',
+        sprintf('pgsql:host=%s;port=%d;dbname=%s;sslmode=verify-full', $url['host'], $url['port'] ?? 5432, $database),
+        rawurldecode($url['user']),
+        rawurldecode($url['pass'] ?? ''),
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]
     );
     if ($method === 'GET') {
@@ -48,7 +58,7 @@ try {
         send(422, ['error' => 'Invalid service, account reference, amount, or request ID.']);
     }
     $id = bin2hex(random_bytes(16));
-    $insert = $db->prepare('INSERT INTO payments (id, request_id, service, reference, amount) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE id = id');
+    $insert = $db->prepare('INSERT INTO payments (id, request_id, service, reference, amount) VALUES (?, ?, ?, ?, ?) ON CONFLICT (request_id) DO NOTHING');
     $insert->execute([$id, $requestId, $service, $reference, $amount]);
     $lookup = $db->prepare('SELECT id, service, reference, amount FROM payments WHERE request_id = ?');
     $lookup->execute([$requestId]);
